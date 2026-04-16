@@ -36,12 +36,14 @@ def run_daily_task(topic: str | None = None) -> dict:
     """Esegue il task giornaliero: genera contenuto Instagram e crea deck Gamma."""
     from src.instagram_agent import InstagramAgent
     from src.gamma_client import GammaClient
+    from src.notifier import Notifier
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     logger.info(f"=== Task giornaliero avviato: {timestamp} ===")
 
     agent = InstagramAgent()
     gamma = GammaClient()
+    notifier = Notifier()
 
     logger.info("Generazione contenuto Instagram con Claude...")
     content = agent.generate_daily_content(topic=topic)
@@ -67,6 +69,9 @@ def run_daily_task(topic: str | None = None) -> dict:
 
     _save_result(result)
     _print_summary(result)
+
+    logger.info("Invio notifica...")
+    notifier.send(content, deck_info)
 
     return result
 

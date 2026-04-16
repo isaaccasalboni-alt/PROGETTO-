@@ -2,9 +2,14 @@ name: Instagram Daily Post
 
 on:
   schedule:
-    # Ogni giorno alle 09:00 ora italiana (08:00 UTC in estate, 07:00 UTC in inverno)
+    # Ogni giorno alle 09:00 ora italiana (08:00 UTC estate, 07:00 UTC inverno)
     - cron: "0 8 * * *"
-  workflow_dispatch:  # permette di avviare manualmente dal sito GitHub
+  workflow_dispatch:          # ← bottone "Lancia ora" sulla pagina GitHub
+    inputs:
+      topic:
+        description: "Argomento specifico (lascia vuoto per auto-generazione)"
+        required: false
+        default: ""
 
 jobs:
   generate-post:
@@ -14,7 +19,7 @@ jobs:
       - name: Checkout codice
         uses: actions/checkout@v4
 
-      - name: Installa Python
+      - name: Installa Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -27,12 +32,24 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GAMMA_API_KEY: ${{ secrets.GAMMA_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           CONTENT_LANGUAGE: italiano
-        run: python main.py
+        run: |
+          TOPIC="${{ github.event.inputs.topic }}"
+          if [ -n "$TOPIC" ]; then
+            python main.py --topic "$TOPIC"
+          else
+            python main.py
+          fi
 
-      - name: Salva output come artifact
+      - name: Salva output come artifact scaricabile
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: post-${{ github.run_id }}
           path: logs/
-          retention-days: 30
+          retention-days: 90
