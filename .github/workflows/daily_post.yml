@@ -1,0 +1,38 @@
+name: Instagram Daily Post
+
+on:
+  schedule:
+    # Ogni giorno alle 09:00 ora italiana (08:00 UTC in estate, 07:00 UTC in inverno)
+    - cron: "0 8 * * *"
+  workflow_dispatch:  # permette di avviare manualmente dal sito GitHub
+
+jobs:
+  generate-post:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout codice
+        uses: actions/checkout@v4
+
+      - name: Installa Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Installa dipendenze
+        run: pip install -r requirements.txt
+
+      - name: Genera post Instagram + deck Gamma
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GAMMA_API_KEY: ${{ secrets.GAMMA_API_KEY }}
+          CONTENT_LANGUAGE: italiano
+        run: python main.py
+
+      - name: Salva output come artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-${{ github.run_id }}
+          path: logs/
+          retention-days: 30
