@@ -37,6 +37,7 @@ def run_daily_task(topic: str | None = None) -> dict:
     from src.instagram_agent import InstagramAgent
     from src.gamma_client import GammaClient
     from src.notifier import Notifier
+    from src.drive_uploader import DriveUploader
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     logger.info(f"=== Task giornaliero avviato: {timestamp} ===")
@@ -44,6 +45,7 @@ def run_daily_task(topic: str | None = None) -> dict:
     agent = InstagramAgent()
     gamma = GammaClient()
     notifier = Notifier()
+    drive = DriveUploader()
 
     logger.info("Generazione contenuto Instagram con Claude...")
     content = agent.generate_daily_content(topic=topic)
@@ -69,6 +71,11 @@ def run_daily_task(topic: str | None = None) -> dict:
 
     _save_result(result)
     _print_summary(result)
+
+    logger.info("Caricamento su Google Drive...")
+    drive_links = drive.upload(content, deck_info)
+    if drive_links:
+        result["drive"] = drive_links
 
     logger.info("Invio notifica...")
     notifier.send(content, deck_info)
