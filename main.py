@@ -1,6 +1,6 @@
 """
-Instagram Description Agent con Gamma Slides
-============================================
+Instagram Description Agent con Slide Generate in Python
+=========================================================
 
 Uso:
   python main.py                          # Esegui una volta subito
@@ -33,9 +33,9 @@ LOG_DIR.mkdir(exist_ok=True)
 
 
 def run_daily_task(topic: str | None = None) -> dict:
-    """Esegue il task giornaliero: genera contenuto Instagram e crea deck Gamma."""
+    """Esegue il task giornaliero: genera contenuto Instagram, crea le 3 slide e invia via email."""
     from src.instagram_agent import InstagramAgent
-    from src.gamma_client import GammaClient
+    from src.slide_generator import generate_slides
     from src.notifier import Notifier
     from src.drive_uploader import DriveUploader
 
@@ -43,7 +43,6 @@ def run_daily_task(topic: str | None = None) -> dict:
     logger.info(f"=== Task giornaliero avviato: {timestamp} ===")
 
     agent = InstagramAgent()
-    gamma = GammaClient()
     notifier = Notifier()
     drive = DriveUploader()
 
@@ -51,14 +50,11 @@ def run_daily_task(topic: str | None = None) -> dict:
     content = agent.generate_daily_content(topic=topic)
 
     logger.info(f"Argomento: {content['topic']}")
-    logger.info(f"Slide da creare: {len(content['slide_sections'])}")
+    logger.info(f"Slide da generare: {len(content['slide_sections'])}")
 
-    deck_title = f"{content['topic'].title()} — {datetime.now().strftime('%d/%m/%Y')}"
-    logger.info(f"Creazione deck Gamma: '{deck_title}'")
-    deck_info = gamma.create_deck(
-        title=deck_title,
-        slide_sections=content["slide_sections"],
-    )
+    logger.info("Generazione immagini slide (1080x1080 PNG)...")
+    slides = generate_slides(content["slide_sections"])
+    logger.info(f"Generate {len(slides)} slide")
 
     result = {
         "timestamp": timestamp,
@@ -66,25 +62,23 @@ def run_daily_task(topic: str | None = None) -> dict:
         "caption": content["caption"],
         "hashtags": content["hashtags"],
         "slide_sections": content["slide_sections"],
-        "deck": deck_info,
     }
 
     _save_result(result)
-    _print_summary(result)
+    _print_summary(result, slides)
 
     logger.info("Caricamento su Google Drive...")
-    drive_links = drive.upload(content, deck_info)
+    drive_links = drive.upload(content)
     if drive_links:
         result["drive"] = drive_links
 
-    logger.info("Invio notifica...")
-    notifier.send(content, deck_info)
+    logger.info("Invio notifica email con slide allegate...")
+    notifier.send(content, slides)
 
     return result
 
 
 def _save_result(result: dict) -> None:
-    """Salva il risultato in un file JSON nella cartella logs/."""
     date_str = datetime.now().strftime("%Y-%m-%d")
     log_file = LOG_DIR / f"post_{date_str}.json"
     with open(log_file, "w", encoding="utf-8") as f:
@@ -92,16 +86,17 @@ def _save_result(result: dict) -> None:
     logger.info(f"Risultato salvato in: {log_file}")
 
 
-def _print_summary(result: dict) -> None:
+def _print_summary(result: dict, slides: list) -> None:
     print("\n" + "=" * 60)
     print("RIEPILOGO CONTENUTO GENERATO")
     print("=" * 60)
     print(f"Argomento: {result['topic']}")
     print(f"\nCAPTION:\n{result['caption'][:300]}{'...' if len(result['caption']) > 300 else ''}")
     print(f"\nHASHTAG ({len(result['hashtags'])}): {' '.join(result['hashtags'][:10])}...")
-    print(f"\nDECK GAMMA:")
-    print(f"  URL: {result['deck']['deck_url']}")
-    print(f"  Slide: {len(result['slide_sections'])}")
+    print(f"\nSLIDE GENERATE: {len(slides)}")
+    for i, s in enumerate(slides):
+        size_kb = len(s["bytes"]) // 1024
+        print(f"  • {s['filename']} ({size_kb} KB)")
     print("=" * 60 + "\n")
 
 
@@ -114,7 +109,7 @@ def _check_env() -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Instagram Description Agent con Gamma Slides",
+        description="Instagram Description Agent con Slide Generate in Python",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -150,7 +145,6 @@ def main():
             except Exception as e:
                 logger.error(f"Errore nel task giornaliero: {e}", exc_info=True)
 
-        # Prima esecuzione immediata, poi schedule
         logger.info("Esecuzione immediata prima di avviare lo scheduler...")
         scheduled_job()
 

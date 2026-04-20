@@ -46,7 +46,7 @@ class DriveUploader:
         self.service = build("drive", "v3", credentials=creds)
         return self.service
 
-    def upload(self, content: dict, deck_info: dict) -> dict:
+    def upload(self, content: dict) -> dict:
         """
         Carica su Drive un file di testo formattato con il post del giorno.
         Ritorna i link ai file caricati.
@@ -60,7 +60,7 @@ class DriveUploader:
         links = {}
 
         # File 1 — Post completo (testo formattato, pronto da copiare)
-        post_text = self._format_post(content, deck_info)
+        post_text = self._format_post(content)
         post_link = self._upload_file(
             service,
             name=f"Instagram_{today}.txt",
@@ -72,7 +72,7 @@ class DriveUploader:
 
         # File 2 — Dati completi in JSON (archivio)
         json_text = json.dumps(
-            {**content, "deck": deck_info, "date": today},
+            {**content, "date": today},
             ensure_ascii=False,
             indent=2,
         )
@@ -102,7 +102,7 @@ class DriveUploader:
         )
         return file.get("webViewLink", "")
 
-    def _format_post(self, content: dict, deck_info: dict) -> str:
+    def _format_post(self, content: dict) -> str:
         today = datetime.now().strftime("%d/%m/%Y")
         hashtags = " ".join(f"#{h.lstrip('#')}" for h in content["hashtags"])
         slides = "\n".join(
@@ -121,10 +121,7 @@ HASHTAG ({len(content['hashtags'])}):
 {hashtags}
 
 {'=' * 60}
-DECK GAMMA ({len(content['slide_sections'])} slide):
-{deck_info.get('deck_url', 'N/D')}
-
-SLIDE:
+SLIDE ({len(content['slide_sections'])}):
 {slides}
 
 {'=' * 60}

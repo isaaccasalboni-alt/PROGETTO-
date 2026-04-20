@@ -28,20 +28,18 @@ jobs:
       - name: Installa dipendenze
         run: pip install -r requirements.txt
 
-      - name: Genera post Instagram + deck Gamma
+      - name: Genera post Instagram + 3 slide PNG
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GAMMA_API_KEY: ${{ secrets.GAMMA_API_KEY }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
           CONTENT_LANGUAGE: italiano
         run: |
-          # Ricrea il file credentials.json dal secret GitHub
-          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
+          # Ricrea il file credentials.json dal secret GitHub (se configurato)
+          if [ -n "${{ secrets.GOOGLE_CREDENTIALS_JSON }}" ]; then
+            echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
+          fi
           TOPIC="${{ github.event.inputs.topic }}"
           if [ -n "$TOPIC" ]; then
             python main.py --topic "$TOPIC"

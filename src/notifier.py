@@ -1,129 +1,132 @@
+import base64
 import os
-import smtplib
 import requests
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from datetime import datetime
 
 
 class Notifier:
     """
-    Invia il contenuto generato via Email e/o Telegram.
+    Invia caption + hashtag + 3 slide allegate via email (Resend).
 
-    Configura nel .env:
-      EMAIL_FROM, EMAIL_TO, EMAIL_APP_PASSWORD  → Gmail
-      TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID      → Telegram
+    Setup (2 minuti, gratuito):
+      1. Vai su resend.com → Sign up con la tua Gmail
+      2. Dashboard → API Keys → Create API Key
+      3. Metti nel .env:  RESEND_API_KEY=re_...
     """
 
-    def send(self, content: dict, deck_info: dict) -> None:
-        sent = False
+    RESEND_URL = "https://api.resend.com/emails"
 
-        if os.getenv("EMAIL_FROM") and os.getenv("EMAIL_APP_PASSWORD"):
-            try:
-                self._send_email(content, deck_info)
-                sent = True
-            except Exception as e:
-                print(f"[Notifier] Errore email: {e}")
+    def send(self, content: dict, slides: list[dict]) -> None:
+        api_key = os.getenv("RESEND_API_KEY", "")
+        if not api_key or api_key.startswith("re_xxx"):
+            print("[Email] RESEND_API_KEY non configurata — salto invio email")
+            return
 
-        if os.getenv("TELEGRAM_BOT_TOKEN") and os.getenv("TELEGRAM_CHAT_ID"):
-            try:
-                self._send_telegram(content, deck_info)
-                sent = True
-            except Exception as e:
-                print(f"[Notifier] Errore Telegram: {e}")
-
-        if not sent:
-            print("[Notifier] Nessun canale configurato — output solo in logs/")
-
-    # ── EMAIL ──────────────────────────────────────────────────────────────────
-
-    def _send_email(self, content: dict, deck_info: dict) -> None:
-        sender = os.environ["EMAIL_FROM"]
-        recipient = os.getenv("EMAIL_TO", sender)
-        password = os.environ["EMAIL_APP_PASSWORD"]
+        to_email = os.getenv("EMAIL_TO", "")
+        if not to_email:
+            print("[Email] EMAIL_TO non configurata")
+            return
 
         today = datetime.now().strftime("%d/%m/%Y")
-        subject = f"📸 Post Instagram del {today} — {content['topic'].title()}"
+        subject = f"📸 Post Instagram {today} — {content['topic'].title()}"
 
-        html = self._build_html_email(content, deck_info, today)
+        attachments = [
+            {
+                "filename": s["filename"],
+                "content": base64.b64encode(s["bytes"]).decode(),
+            }
+            for s in slides
+        ]
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = sender
-        msg["To"] = recipient
-        msg.attach(MIMEText(html, "html", "utf-8"))
+        html = self._build_html(content, slides, today)
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender, password)
-            server.sendmail(sender, recipient, msg.as_string())
+        payload = {
+            "from": "Instagram Agent <onboarding@resend.dev>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html,
+            "attachments": attachments,
+        }
 
-        print(f"[Email] Inviata a {recipient}")
+        try:
+            resp = requests.post(
+                self.RESEND_URL,
+                headers={"Authorization": f"Bearer {api_key}"},
+                json=payload,
+                timeout=30,
+            )
+            resp.raise_for_status()
+            print(f"[Email] Inviata a {to_email} ✅")
+        except requests.HTTPError as e:
+            print(f"[Email] Errore {e.response.status_code}: {e.response.text}")
+        except Exception as e:
+            print(f"[Email] Errore: {e}")
 
-    def _build_html_email(self, content: dict, deck_info: dict, today: str) -> str:
-        hashtags_html = " ".join(f"<span style='color:#0095f6'>#{h.lstrip('#')}</span>"
-                                  for h in content["hashtags"])
-        slides_html = "".join(
-            f"""<div style='background:#f8f9fa;border-left:4px solid #0095f6;
-                margin:8px 0;padding:12px;border-radius:4px'>
-                <b>{s['title']}</b><br>
-                <span style='color:#555'>{s['content']}</span>
-                </div>"""
-            for s in content["slide_sections"]
+    def _build_html(self, content: dict, slides: list[dict], today: str) -> str:
+        hashtags_html = " ".join(
+            f"<span style='color:#833ab4;font-weight:600'>#{h.lstrip('#')}</span>"
+            for h in content["hashtags"]
         )
-        caption_escaped = content["caption"].replace("\n", "<br>")
+        caption_html = content["caption"].replace("\n", "<br>")
 
-        return f"""
-<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#222'>
-<div style='background:#0095f6;color:white;padding:20px;border-radius:8px 8px 0 0'>
-  <h1 style='margin:0'>📸 Post Instagram — {today}</h1>
-  <p style='margin:4px 0 0;opacity:.85'>Argomento: <b>{content['topic'].title()}</b></p>
+        slides_html = ""
+        for i, s in enumerate(slides):
+            b64 = base64.b64encode(s["bytes"]).decode()
+            slides_html += f"""
+            <div style='text-align:center;margin:16px 0'>
+              <p style='margin:4px 0;color:#555;font-size:13px'>Slide {i+1} — allegata come <b>{s['filename']}</b></p>
+              <img src='data:image/png;base64,{b64}'
+                   style='width:100%;max-width:400px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.15)'
+                   alt='Slide {i+1}'>
+            </div>"""
+
+        return f"""<!DOCTYPE html>
+<html><body style='font-family:Arial,sans-serif;max-width:680px;margin:auto;
+                   background:#f5f5f5;padding:20px'>
+
+<div style='background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);
+            color:white;padding:28px;border-radius:12px 12px 0 0;text-align:center'>
+  <h1 style='margin:0;font-size:26px'>📸 Post Instagram</h1>
+  <p style='margin:6px 0 0;opacity:.9;font-size:16px'>{today} · <b>{content['topic'].title()}</b></p>
 </div>
-<div style='padding:20px;border:1px solid #ddd;border-top:none;border-radius:0 0 8px 8px'>
 
-  <h2>📝 Caption</h2>
-  <div style='background:#fff8f0;padding:16px;border-radius:8px;font-size:15px;line-height:1.6'>
-    {caption_escaped}
-  </div>
+<div style='background:white;padding:28px;border-radius:0 0 12px 12px;
+            box-shadow:0 4px 20px rgba(0,0,0,.08)'>
 
-  <h2>🏷️ Hashtag ({len(content['hashtags'])})</h2>
-  <div style='line-height:2;font-size:14px'>{hashtags_html}</div>
-
-  <h2>🎞️ Deck Gamma ({len(content['slide_sections'])} slide)</h2>
-  <a href='{deck_info['deck_url']}' style='background:#0095f6;color:white;
-     padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;
-     font-weight:bold'>Apri il deck Gamma →</a>
+  <!-- SLIDE IMAGES -->
+  <h2 style='color:#333;border-bottom:2px solid #fcb045;padding-bottom:8px'>
+    🎨 Le tue 3 Slide (allegate)
+  </h2>
+  <p style='color:#666;font-size:14px'>
+    Le slide sono allegate a questa email come file PNG pronti da pubblicare.
+  </p>
   {slides_html}
 
+  <!-- CAPTION -->
+  <h2 style='color:#333;border-bottom:2px solid #833ab4;padding-bottom:8px;margin-top:32px'>
+    📝 Caption (copia e incolla su Instagram)
+  </h2>
+  <div style='background:#fff8f0;border:1px solid #fce4c0;padding:20px;
+              border-radius:8px;font-size:15px;line-height:1.7;
+              white-space:pre-wrap;font-family:Georgia,serif'>
+    {caption_html}
+  </div>
+  <button onclick="navigator.clipboard.writeText(this.dataset.text)"
+          data-text="{content['caption'].replace(chr(34), '&quot;')}"
+          style='margin-top:10px;background:#833ab4;color:white;border:none;
+                 padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px'>
+    📋 Copia Caption
+  </button>
+
+  <!-- HASHTAG -->
+  <h2 style='color:#333;border-bottom:2px solid #fd1d1d;padding-bottom:8px;margin-top:32px'>
+    🏷️ Hashtag ({len(content['hashtags'])})
+  </h2>
+  <div style='line-height:2.2;font-size:14px'>{hashtags_html}</div>
+
 </div>
-<p style='color:#aaa;font-size:12px;text-align:center'>
+
+<p style='color:#aaa;font-size:12px;text-align:center;margin-top:16px'>
   Generato automaticamente da Instagram Agent · {today}
 </p>
 </body></html>"""
-
-    # ── TELEGRAM ───────────────────────────────────────────────────────────────
-
-    def _send_telegram(self, content: dict, deck_info: dict) -> None:
-        token = os.environ["TELEGRAM_BOT_TOKEN"]
-        chat_id = os.environ["TELEGRAM_CHAT_ID"]
-        today = datetime.now().strftime("%d/%m/%Y")
-
-        hashtags_str = " ".join(f"#{h.lstrip('#')}" for h in content["hashtags"][:15])
-
-        text = (
-            f"📸 *Post Instagram — {today}*\n"
-            f"Argomento: _{content['topic'].title()}_\n\n"
-            f"*CAPTION:*\n{content['caption'][:800]}{'...' if len(content['caption']) > 800 else ''}\n\n"
-            f"*HASHTAG:*\n{hashtags_str}\n\n"
-            f"*DECK GAMMA ({len(content['slide_sections'])} slide):*\n"
-            f"{deck_info['deck_url']}"
-        )
-
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        resp = requests.post(url, json={
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "Markdown",
-            "disable_web_page_preview": False,
-        }, timeout=15)
-        resp.raise_for_status()
-        print(f"[Telegram] Messaggio inviato al chat_id {chat_id}")
