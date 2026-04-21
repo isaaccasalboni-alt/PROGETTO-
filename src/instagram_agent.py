@@ -1,7 +1,10 @@
 import json
 import os
-import anthropic
+import requests
 from datetime import datetime
+
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 SYSTEM_PROMPT = """Sei un esperto di marketing digitale e content creator specializzato in contenuti Instagram virali.
 
@@ -24,7 +27,7 @@ Regole OBBLIGATORIE:
 - Esattamente 25 hashtag (mix popolari e di nicchia)
 - Esattamente 3 slide_sections (non di più, non di meno)
 - Ogni slide: titolo breve + contenuto su max 3 righe
-- Rispondi SOLO con il JSON"""
+- Rispondi SOLO con il JSON, senza markdown, senza ```json```"""
 
 TOPICS_POOL = [
     "produttività e organizzazione",
@@ -42,8 +45,9 @@ TOPICS_POOL = [
 
 class InstagramAgent:
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-        self.model = "claude-opus-4-7"
+        self.api_key = os.environ.get("GROQ_API_KEY", "")
+        if not self.api_key:
+            raise ValueError("GROQ_API_KEY non impostata nel .env")
         self.language = os.getenv("CONTENT_LANGUAGE", "italiano")
 
     def generate_daily_content(self, topic: str | None = None) -> dict:
@@ -58,35 +62,39 @@ class InstagramAgent:
             + "Genera JSON con caption, 25 hashtag ed ESATTAMENTE 3 slide."
         )
 
-        print(f"\n[Claude] Generazione contenuto — {today}")
+        print(f"\n[Groq/Llama] Generazione contenuto — {today}")
         print("-" * 50)
 
-        full_response = ""
-        with self.client.messages.stream(
-            model=self.model,
-            max_tokens=4096,
-            thinking={"type": "adaptive"},
-            system=[{
-                "type": "text",
-                "text": SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"},
-            }],
-            messages=[{"role": "user", "content": user_message}],
-        ) as stream:
-            for text in stream.text_stream:
-                full_response += text
-                print(text, end="", flush=True)
+        payload = {
+            "model": GROQ_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ],
+            "temperature": 0.9,
+            "max_tokens": 4096,
+        }
 
-        print("\n" + "-" * 50)
+        resp = requests.post(
+            GROQ_URL,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json=payload,
+            timeout=60,
+        )
+        if not resp.ok:
+            raise ValueError(f"Errore Groq {resp.status_code}: {resp.text}")
+
+        full_response = resp.json()["choices"][0]["message"]["content"]
+        print(full_response[:300] + "..." if len(full_response) > 300 else full_response)
+        print("-" * 50)
 
         j_start = full_response.find("{")
         j_end = full_response.rfind("}") + 1
         if j_start == -1 or j_end <= j_start:
-            raise ValueError("Risposta Claude non contiene JSON valido")
+            raise ValueError("Risposta Gemini non contiene JSON valido")
 
         content = json.loads(full_response[j_start:j_end])
         self._validate(content)
-        # Forza esattamente 3 slide
         content["slide_sections"] = content["slide_sections"][:3]
         return content
 

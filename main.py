@@ -101,8 +101,8 @@ def _print_summary(result: dict, slides: list) -> None:
 
 
 def _check_env() -> bool:
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        logger.error("ANTHROPIC_API_KEY non impostata. Copia .env.example in .env e configura le chiavi.")
+    if not os.getenv("GROQ_API_KEY"):
+        logger.error("GROQ_API_KEY non impostata. Vai su console.groq.com e crea una chiave gratuita.")
         return False
     return True
 

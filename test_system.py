@@ -23,8 +23,9 @@ def main():
     parser.add_argument("--send-email", action="store_true", help="Invia anche l'email")
     args = parser.parse_args()
 
-    if not os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY", "").startswith("metti_"):
-        print("❌ ANTHROPIC_API_KEY non configurata nel .env")
+    if not os.getenv("GROQ_API_KEY") or os.getenv("GROQ_API_KEY", "").startswith("metti_"):
+        print("❌ GROQ_API_KEY non configurata nel .env")
+        print("   Vai su console.groq.com → crea chiave gratuita → incollala nel .env")
         sys.exit(1)
 
     print("=" * 60)
@@ -32,7 +33,7 @@ def main():
     print("=" * 60)
 
     # Step 1: Genera contenuto
-    print("\n[1/3] Generazione contenuto con Claude...")
+    print("\n[1/3] Generazione contenuto con Gemini...")
     from src.instagram_agent import InstagramAgent
     agent = InstagramAgent()
     content = agent.generate_daily_content(topic=args.topic)
