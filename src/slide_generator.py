@@ -53,24 +53,63 @@ def _wrap_text(text: str, font, max_width: int, draw: ImageDraw.ImageDraw) -> li
     return lines
 
 
-def _overlay_logo(img: Image.Image) -> None:
-    """Incolla il logo in alto a destra se assets/logo.png esiste."""
-    if not LOGO_PATH.exists():
-        return
-    try:
-        logo = Image.open(LOGO_PATH).convert("RGBA")
-        # Ridimensiona il logo a max 280px di larghezza mantenendo proporzioni
-        max_w = 280
-        ratio = max_w / logo.width
-        new_size = (max_w, int(logo.height * ratio))
-        logo = logo.resize(new_size, Image.LANCZOS)
-        # Posizione: angolo in alto a destra con margine
-        margin = 40
-        x = SIZE[0] - logo.width - margin
-        y = margin
-        img.paste(logo, (x, y), logo)
-    except Exception:
-        pass
+def _draw_logo(draw: ImageDraw.ImageDraw, img: Image.Image) -> None:
+    """
+    Se assets/logo.png esiste lo usa, altrimenti disegna il logo vettoriale dello studio.
+    Posizione: angolo in alto a destra.
+    """
+    margin = 44
+    logo_w = 300
+
+    # Prova a usare il file PNG se disponibile
+    if LOGO_PATH.exists():
+        try:
+            logo = Image.open(LOGO_PATH).convert("RGBA")
+            ratio = logo_w / logo.width
+            new_size = (logo_w, int(logo.height * ratio))
+            logo = logo.resize(new_size, Image.LANCZOS)
+            img.paste(logo, (SIZE[0] - logo_w - margin, margin), logo)
+            return
+        except Exception:
+            pass
+
+    # Fallback: disegna il logo geometrico dello studio con Pillow
+    x = SIZE[0] - logo_w - margin
+    y = margin + 8
+
+    # --- Marchio geometrico 2x2 (ispirato al logo Casalboni) ---
+    sq = 36   # dimensione quadrante
+    gap = 5   # spazio tra quadranti
+    white = (255, 255, 255)
+    blue_light = (52, 152, 219)   # azzurro
+    blue_dark  = (26, 82, 118)    # blu scuro
+
+    # quadrante alto-sinistra: blu chiaro pieno
+    draw.rectangle([x, y, x+sq, y+sq], fill=blue_light)
+    # quadrante alto-destra: blu scuro pieno
+    draw.rectangle([x+sq+gap, y, x+sq*2+gap, y+sq], fill=blue_dark)
+    # quadrante basso-sinistra: bianco con arco interno (effetto C)
+    draw.rectangle([x, y+sq+gap, x+sq, y+sq*2+gap], fill=white)
+    draw.ellipse(
+        [x - sq//2, y+sq+gap, x + sq//2, y+sq*2+gap],
+        fill=blue_dark,
+    )
+    # quadrante basso-destra: blu chiaro
+    draw.rectangle([x+sq+gap, y+sq+gap, x+sq*2+gap, y+sq*2+gap], fill=blue_light)
+    # piccolo quadrato bianco in basso-destra (dettaglio logo)
+    inner = sq // 3
+    draw.rectangle(
+        [x+sq+gap+sq-inner, y+sq+gap+sq-inner, x+sq*2+gap, y+sq*2+gap],
+        fill=white,
+    )
+
+    # --- Testo del logo ---
+    tx = x + sq * 2 + gap + 14
+    ty = y + 2
+    font_small = _get_font(20)
+    font_bold  = _get_font(28, bold=True)
+    draw.text((tx, ty),      "Studio Tecnico", font=font_small, fill=(210, 210, 210))
+    draw.text((tx, ty + 26), "CASALBONI",      font=font_bold,  fill=white)
 
 
 def create_slide(title: str, content: str, index: int) -> bytes:
@@ -89,8 +128,8 @@ def create_slide(title: str, content: str, index: int) -> bytes:
     accent = _hex(theme["accent"])
     draw.rectangle([(0, 0), (SIZE[0], 8)], fill=(*accent, 255))
 
-    # Logo in alto a destra (se disponibile)
-    _overlay_logo(img)
+    # Logo in alto a destra
+    _draw_logo(draw, img)
 
     # Numero slide (badge)
     badge_font = _get_font(32, bold=True)
@@ -103,7 +142,7 @@ def create_slide(title: str, content: str, index: int) -> bytes:
     # Titolo
     title_font = _get_font(72, bold=True)
     margin = 54
-    max_w = SIZE[0] - margin * 2 - 300  # spazio per logo
+    max_w = SIZE[0] - margin - 360   # lascia spazio al logo
     title_lines = _wrap_text(title.upper(), title_font, max_w, draw)
     y = 130
     for line in title_lines[:3]:
@@ -143,7 +182,6 @@ def create_slide(title: str, content: str, index: int) -> bytes:
         fill=(200, 200, 200, 180),
     )
 
-    # Converti in RGB per il salvataggio PNG
     img_rgb = img.convert("RGB")
     buf = io.BytesIO()
     img_rgb.save(buf, format="PNG", optimize=True)
