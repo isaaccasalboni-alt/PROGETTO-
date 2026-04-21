@@ -64,7 +64,7 @@ def run_daily_task(topic: str | None = None) -> dict:
         "slide_sections": content["slide_sections"],
     }
 
-    _save_result(result)
+    _save_result(result, slides)
     _print_summary(result, slides)
 
     logger.info("Caricamento su Google Drive...")
@@ -78,12 +78,33 @@ def run_daily_task(topic: str | None = None) -> dict:
     return result
 
 
-def _save_result(result: dict) -> None:
+def _save_result(result: dict, slides: list) -> None:
     date_str = datetime.now().strftime("%Y-%m-%d")
-    log_file = LOG_DIR / f"post_{date_str}.json"
-    with open(log_file, "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
-    logger.info(f"Risultato salvato in: {log_file}")
+
+    # File TXT leggibile — caption + hashtag pronti da copiare
+    txt_file = LOG_DIR / f"post_{date_str}.txt"
+    hashtags_str = " ".join(f"#{h.lstrip('#')}" for h in result["hashtags"])
+    txt_content = f"""POST INSTAGRAM — {date_str}
+Argomento: {result['topic']}
+{'=' * 60}
+
+CAPTION (copia e incolla su Instagram):
+{result['caption']}
+
+{'=' * 60}
+HASHTAG ({len(result['hashtags'])}):
+{hashtags_str}
+"""
+    txt_file.write_text(txt_content, encoding="utf-8")
+    logger.info(f"Post salvato in: {txt_file}")
+
+    # Slide PNG
+    slides_dir = LOG_DIR / f"slide_{date_str}"
+    slides_dir.mkdir(exist_ok=True)
+    for slide in slides:
+        path = slides_dir / slide["filename"]
+        path.write_bytes(slide["bytes"])
+        logger.info(f"Slide salvata: {path}")
 
 
 def _print_summary(result: dict, slides: list) -> None:

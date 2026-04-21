@@ -54,3 +54,4 @@ jobs:
           name: post-${{ github.run_id }}
           path: logs/
           retention-days: 90
+          include-hidden-files: false
