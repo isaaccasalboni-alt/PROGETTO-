@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 # Temi cromatici professionali — Studio Tecnico Casalboni
@@ -9,6 +10,7 @@ SLIDE_THEMES = [
 ]
 
 SIZE = (1080, 1080)
+LOGO_PATH = Path(__file__).parent.parent / "assets" / "logo.png"
 
 
 def _hex(h: str):
@@ -51,9 +53,29 @@ def _wrap_text(text: str, font, max_width: int, draw: ImageDraw.ImageDraw) -> li
     return lines
 
 
+def _overlay_logo(img: Image.Image) -> None:
+    """Incolla il logo in alto a destra se assets/logo.png esiste."""
+    if not LOGO_PATH.exists():
+        return
+    try:
+        logo = Image.open(LOGO_PATH).convert("RGBA")
+        # Ridimensiona il logo a max 280px di larghezza mantenendo proporzioni
+        max_w = 280
+        ratio = max_w / logo.width
+        new_size = (max_w, int(logo.height * ratio))
+        logo = logo.resize(new_size, Image.LANCZOS)
+        # Posizione: angolo in alto a destra con margine
+        margin = 40
+        x = SIZE[0] - logo.width - margin
+        y = margin
+        img.paste(logo, (x, y), logo)
+    except Exception:
+        pass
+
+
 def create_slide(title: str, content: str, index: int) -> bytes:
     theme = SLIDE_THEMES[index % len(SLIDE_THEMES)]
-    img = Image.new("RGB", SIZE)
+    img = Image.new("RGBA", SIZE)
     draw = ImageDraw.Draw(img)
 
     # Sfondo sfumato verticale
@@ -61,11 +83,14 @@ def create_slide(title: str, content: str, index: int) -> bytes:
     bot = _hex(theme["bg_bottom"])
     for y in range(SIZE[1]):
         color = _lerp(top, bot, y / SIZE[1])
-        draw.line([(0, y), (SIZE[0], y)], fill=color)
+        draw.line([(0, y), (SIZE[0], y)], fill=(*color, 255))
 
     # Barra accent in alto
     accent = _hex(theme["accent"])
-    draw.rectangle([(0, 0), (SIZE[0], 8)], fill=accent)
+    draw.rectangle([(0, 0), (SIZE[0], 8)], fill=(*accent, 255))
+
+    # Logo in alto a destra (se disponibile)
+    _overlay_logo(img)
 
     # Numero slide (badge)
     badge_font = _get_font(32, bold=True)
@@ -78,26 +103,27 @@ def create_slide(title: str, content: str, index: int) -> bytes:
     # Titolo
     title_font = _get_font(72, bold=True)
     margin = 54
-    max_w = SIZE[0] - margin * 2
+    max_w = SIZE[0] - margin * 2 - 300  # spazio per logo
     title_lines = _wrap_text(title.upper(), title_font, max_w, draw)
     y = 130
     for line in title_lines[:3]:
-        draw.text((margin, y), line, font=title_font, fill=(255, 255, 255))
+        draw.text((margin, y), line, font=title_font, fill=(255, 255, 255, 255))
         y += 84
 
     # Separatore
     y += 20
-    draw.rectangle([(margin, y), (margin + 80, y + 4)], fill=accent)
+    draw.rectangle([(margin, y), (margin + 80, y + 4)], fill=(*accent, 180))
     y += 40
 
     # Contenuto
     body_font = _get_font(44)
+    full_max_w = SIZE[0] - margin * 2
     for para in content.split("\n"):
-        lines = _wrap_text(para.strip(), body_font, max_w, draw)
+        lines = _wrap_text(para.strip(), body_font, full_max_w, draw)
         for line in lines:
             if y > SIZE[1] - 200:
                 break
-            draw.text((margin, y), line, font=body_font, fill=(230, 230, 230))
+            draw.text((margin, y), line, font=body_font, fill=(230, 230, 230, 255))
             y += 56
         y += 10
 
@@ -117,16 +143,15 @@ def create_slide(title: str, content: str, index: int) -> bytes:
         fill=(200, 200, 200, 180),
     )
 
+    # Converti in RGB per il salvataggio PNG
+    img_rgb = img.convert("RGB")
     buf = io.BytesIO()
-    img.save(buf, format="PNG", optimize=True)
+    img_rgb.save(buf, format="PNG", optimize=True)
     return buf.getvalue()
 
 
 def generate_slides(slide_sections: list[dict]) -> list[dict]:
-    """
-    Genera le 3 immagini slide.
-    Ritorna lista di dict: {"filename": str, "bytes": bytes}
-    """
+    """Genera le 3 immagini slide. Ritorna lista di dict: {"filename": str, "bytes": bytes}"""
     slides = []
     for i, section in enumerate(slide_sections[:3]):
         img_bytes = create_slide(
