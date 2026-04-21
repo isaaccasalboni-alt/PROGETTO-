@@ -1,11 +1,11 @@
 import io
 from PIL import Image, ImageDraw, ImageFont
 
-# 3 temi cromatici per le 3 slide (Instagram aesthetic)
+# Temi cromatici professionali — Studio Tecnico Casalboni
 SLIDE_THEMES = [
-    {"bg_top": "#833ab4", "bg_bottom": "#fd1d1d", "accent": "#fcb045"},
-    {"bg_top": "#0f3460", "bg_bottom": "#16213e", "accent": "#e94560"},
-    {"bg_top": "#134e5e", "bg_bottom": "#71b280", "accent": "#ffffff"},
+    {"bg_top": "#1a3a5c", "bg_bottom": "#0d2137", "accent": "#f0a500"},  # blu navy + oro
+    {"bg_top": "#2c5f2e", "bg_bottom": "#1a3a1b", "accent": "#f0a500"},  # verde scuro + oro
+    {"bg_top": "#3d2b1f", "bg_bottom": "#1e1510", "accent": "#f0a500"},  # marrone scuro + oro
 ]
 
 SIZE = (1080, 1080)
@@ -101,13 +101,20 @@ def create_slide(title: str, content: str, index: int) -> bytes:
             y += 56
         y += 10
 
-    # Footer
-    footer_font = _get_font(28)
+    # Footer — nome studio + contatto
+    footer_font = _get_font(28, bold=True)
     draw.text(
-        (margin, SIZE[1] - 70),
-        "instagram agent · generato con AI",
+        (margin, SIZE[1] - 80),
+        "STUDIO TECNICO CASALBONI",
         font=footer_font,
-        fill=(255, 255, 255, 120),
+        fill=(*accent, 230),
+    )
+    footer_sub = _get_font(24)
+    draw.text(
+        (margin, SIZE[1] - 44),
+        "Gambettola (FC)  ·  393 230 9508",
+        font=footer_sub,
+        fill=(200, 200, 200, 180),
     )
 
     buf = io.BytesIO()
