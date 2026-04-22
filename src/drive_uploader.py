@@ -2,9 +2,6 @@ import io
 import json
 import os
 from datetime import datetime
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from google.oauth2 import service_account
 
 
 class DriveUploader:
@@ -40,6 +37,8 @@ class DriveUploader:
     def _get_service(self):
         if self.service:
             return self.service
+        from googleapiclient.discovery import build
+        from google.oauth2 import service_account
         creds = service_account.Credentials.from_service_account_file(
             self.CREDENTIALS_FILE, scopes=self.SCOPES
         )
@@ -91,6 +90,7 @@ class DriveUploader:
         self, service, name: str, content: str, mime_type: str
     ) -> str:
         metadata = {"name": name, "parents": [self.folder_id]}
+        from googleapiclient.http import MediaIoBaseUpload
         media = MediaIoBaseUpload(
             io.BytesIO(content.encode("utf-8")),
             mimetype=mime_type,
