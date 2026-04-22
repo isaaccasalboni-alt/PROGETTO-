@@ -166,20 +166,20 @@ def create_slide(title: str, content: str, index: int) -> bytes:
             y += 56
         y += 10
 
-    # Footer — nome studio + contatto
-    footer_font = _get_font(28, bold=True)
+    # Footer — nome studio + contatti completi
+    footer_font = _get_font(26, bold=True)
     draw.text(
-        (margin, SIZE[1] - 80),
-        "STUDIO TECNICO CASALBONI",
+        (margin, SIZE[1] - 90),
+        "STUDIO TECNICO CASALBONI  —  Geom. Isac Casalboni",
         font=footer_font,
         fill=(*accent, 230),
     )
-    footer_sub = _get_font(24)
+    footer_sub = _get_font(22)
     draw.text(
-        (margin, SIZE[1] - 44),
-        "Gambettola (FC)  ·  393 230 9508",
+        (margin, SIZE[1] - 58),
+        "Via Viole 55 int.1, Gambettola (FC)  ·  📱 393 230 9508  ·  ☎ 0547 54095",
         font=footer_sub,
-        fill=(200, 200, 200, 180),
+        fill=(200, 200, 200, 200),
     )
 
     img_rgb = img.convert("RGB")
