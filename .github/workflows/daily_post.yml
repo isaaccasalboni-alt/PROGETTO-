@@ -2,12 +2,11 @@ name: Instagram Daily Post
 
 on:
   schedule:
-    # Ogni giorno alle 09:00 ora italiana (08:00 UTC estate, 07:00 UTC inverno)
-    - cron: "0 8 * * *"
-  workflow_dispatch:          # ← bottone "Lancia ora" sulla pagina GitHub
+    - cron: "0 8 * * *"   # ogni giorno alle 09:00 ora italiana
+  workflow_dispatch:
     inputs:
       topic:
-        description: "Argomento specifico (lascia vuoto per auto-generazione)"
+        description: "Argomento (lascia vuoto per auto)"
         required: false
         default: ""
 
@@ -16,11 +15,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout codice
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Installa Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
@@ -28,19 +25,14 @@ jobs:
       - name: Installa dipendenze
         run: pip install -r requirements.txt
 
-      - name: Genera post Instagram + 3 slide PNG
+      - name: Genera post + slide
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
           CONTENT_LANGUAGE: italiano
         run: |
-          # Ricrea il file credentials.json dal secret GitHub (se configurato)
-          if [ -n "${{ secrets.GOOGLE_CREDENTIALS_JSON }}" ]; then
-            echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
-          fi
           TOPIC="${{ github.event.inputs.topic }}"
           if [ -n "$TOPIC" ]; then
             python main.py --topic "$TOPIC"
@@ -48,11 +40,10 @@ jobs:
             python main.py
           fi
 
-      - name: Salva output come artifact scaricabile
+      - name: Salva artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: post-${{ github.run_id }}
           path: logs/
           retention-days: 90
-          include-hidden-files: false
