@@ -22,8 +22,23 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Installa dipendenze
+      - name: Installa font di sistema
+        run: sudo apt-get install -y fonts-dejavu-core fonts-liberation
+
+      - name: Installa dipendenze Python
         run: pip install -r requirements.txt
+
+      - name: Verifica configurazione secrets
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          if [ -z "$GROQ_API_KEY" ]; then
+            echo "❌ ERRORE: GROQ_API_KEY non è configurata nei secrets del repository."
+            echo "   Vai su: Settings → Secrets and variables → Actions → New repository secret"
+            echo "   Nome: GROQ_API_KEY   Valore: la tua chiave Groq (inizia con gsk_...)"
+            exit 1
+          fi
+          echo "✅ GROQ_API_KEY configurata correttamente"
 
       - name: Genera post + slide
         env:
@@ -46,4 +61,5 @@ jobs:
         with:
           name: post-${{ github.run_id }}
           path: logs/
+          if-no-files-found: warn
           retention-days: 90
