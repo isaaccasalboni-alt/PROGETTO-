@@ -43,6 +43,7 @@ jobs:
       - name: Genera post + slide
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          AKOOL_API_KEY: ${{ secrets.AKOOL_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}

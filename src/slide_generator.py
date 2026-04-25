@@ -1,6 +1,7 @@
 import io
 import os
 import random
+import time
 import requests
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
@@ -93,8 +94,69 @@ def _crop_square(img, w, h):
     return _crop_to(img, w, h)
 
 
-# ── Pexels ─────────────────────────────────────────────────────────────────────
-def _fetch_photo(query: str, fallback_idx: int) -> Image.Image | None:
+# ── Akool (generazione immagine AI) ────────────────────────────────────────────
+def _fetch_photo_akool(prompt: str) -> Image.Image | None:
+    key = os.getenv("AKOOL_API_KEY", "")
+    if not key:
+        return None
+    try:
+        r = requests.post(
+            "https://openapi.akool.com/api/open/v3/content/image/createbyprompt",
+            headers={"x-api-key": key, "Content-Type": "application/json"},
+            json={"prompt": prompt, "scale": "1:1"},
+            timeout=30,
+        )
+        data = r.json()
+        if data.get("code") != 1000:
+            print(f"[Akool] Errore creazione: {data.get('message')}")
+            return None
+
+        image_id = data["data"]["_id"]
+        poll_url = "https://openapi.akool.com/api/open/v3/content/image/infobymodelid"
+
+        for _ in range(30):  # max 90 secondi
+            time.sleep(3)
+            sr = requests.get(
+                poll_url,
+                headers={"x-api-key": key},
+                params={"image_model_id": image_id},
+                timeout=15,
+            )
+            sd = sr.json()
+            if sd.get("code") != 1000:
+                return None
+            status = sd["data"].get("image_status", 0)
+            if status == 3:
+                img_url = sd["data"]["image"]
+                img_data = requests.get(img_url, timeout=20).content
+                return Image.open(io.BytesIO(img_data)).convert("RGBA")
+            if status == 4:
+                print("[Akool] Generazione fallita")
+                return None
+    except Exception as e:
+        print(f"[Akool] Eccezione: {e}")
+    return None
+
+
+def _akool_prompt(image_description: str, title: str) -> str:
+    subject = image_description or title
+    return (
+        f"Professional architectural photography: {subject}. "
+        "Italian modern building exterior or elegant interior design, "
+        "geometric clean composition, high quality photorealistic, no text, no people."
+    )
+
+
+# ── Pexels (fallback) ──────────────────────────────────────────────────────────
+def _fetch_photo(query: str, fallback_idx: int, image_description: str = "") -> Image.Image | None:
+    # 1. Prova Akool (AI generativa) se configurata
+    if os.getenv("AKOOL_API_KEY"):
+        result = _fetch_photo_akool(_akool_prompt(image_description, query))
+        if result:
+            print("[Akool] Immagine AI generata ✅")
+            return result
+
+    # 2. Fallback: Pexels (foto stock)
     key = os.getenv("PEXELS_API_KEY", "")
     if not key or key.startswith("metti_"):
         return None
@@ -554,7 +616,7 @@ def create_slide(title: str, content: str, index: int, image_description: str = 
     layout = random.choice(LAYOUTS)
 
     needs_photo = layout != "minimal"
-    photo = _fetch_photo(image_description or title, index) if needs_photo else None
+    photo = _fetch_photo(image_description or title, index, image_description) if needs_photo else None
 
     if layout == "full_bleed":
         img = _layout_full_bleed(title, content, theme, photo, index+1)
