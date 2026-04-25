@@ -123,7 +123,7 @@ class InstagramAgent:
         if j_start == -1 or j_end <= j_start:
             raise ValueError("Risposta Groq non contiene JSON valido")
 
-        content = json.loads(full_response[j_start:j_end])
+        content = json.loads(full_response[j_start:j_end], strict=False)
         self._validate(content)
         content["slide_sections"] = content["slide_sections"][:3]
         return content
