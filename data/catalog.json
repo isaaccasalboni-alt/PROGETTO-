@@ -1,0 +1,52 @@
+[
+  {
+    "id": "a1b2c3d4",
+    "sku": "SKU-0001",
+    "name": "T-Shirt Premium Cotone",
+    "price": 29.99,
+    "category": "abbigliamento",
+    "description": "T-shirt in cotone 100% biologico, vestibilità regular fit. Disponibile in vari colori.",
+    "stock": 150,
+    "created_at": "2026-01-01T00:00:00"
+  },
+  {
+    "id": "e5f6g7h8",
+    "sku": "SKU-0002",
+    "name": "Felpa con Cappuccio",
+    "price": 59.99,
+    "category": "abbigliamento",
+    "description": "Felpa oversize con cappuccio, interno felpato morbido. Stampa grafica frontale.",
+    "stock": 80,
+    "created_at": "2026-01-01T00:00:00"
+  },
+  {
+    "id": "i9j0k1l2",
+    "sku": "SKU-0003",
+    "name": "Sneakers Urban Classic",
+    "price": 89.99,
+    "category": "scarpe",
+    "description": "Sneakers in pelle sintetica con suola in gomma vulcanizzata. Stile urban.",
+    "stock": 45,
+    "created_at": "2026-01-01T00:00:00"
+  },
+  {
+    "id": "m3n4o5p6",
+    "sku": "SKU-0004",
+    "name": "Zaino Laptop 15\"",
+    "price": 49.99,
+    "category": "accessori",
+    "description": "Zaino impermeabile con vano laptop fino a 15 pollici, porta USB laterale e tasche organizer.",
+    "stock": 30,
+    "created_at": "2026-01-01T00:00:00"
+  },
+  {
+    "id": "q7r8s9t0",
+    "sku": "SKU-0005",
+    "name": "Cappello Dad Hat",
+    "price": 19.99,
+    "category": "accessori",
+    "description": "Cappellino a 6 pannelli non strutturato, chiusura con fibbia regolabile. Ricamo frontale.",
+    "stock": 5,
+    "created_at": "2026-01-01T00:00:00"
+  }
+]
